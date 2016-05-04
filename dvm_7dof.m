@@ -148,8 +148,8 @@ for frame=first_frame:last_frame
         -caFR*x(10);...     % 30. fyFR
         -caRL*x(11);...     % 31. fyRL
         -caRR*x(12);...     % 32. fyRR
-        x(33)+x(1)*dt;...   % 33. x
-        x(34)+x(2)*dt;...   % 34. y
+        x(33)+x(1)*dt+(1/2)*x(3)*dt^2;...   % 33. x
+        x(34)+x(2)*dt+(1/2)*x(3)*dt^2;...   % 34. y
         x(35)+x(8)*dt];     % 35. yaw
 
 %       x
