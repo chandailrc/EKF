@@ -39,23 +39,27 @@ replace = 0;
 
 % >>>>>>>>START: EKF PARAMETERS<<<<<<<<<<<<<
     NN = last_frame - first_frame + 1;
-    n_states=13;
+    n_states=25;
     n_meas_states = 9;
 %     n_meas_states_dash = 3;
     q_proc=0.1;                                 %std of process 
     r_meas= 0.1;                                 %std of measurement
     
     Q_proc=q_proc^2*eye(n_states);              % covariance of process
-    Q_proc_NoiseM = Q_proc;
-    Q_proc_NoiseM(5,5) = 0.001^2;
-    [Q_proc_E, Q_proc_e] = eig(Q_proc_NoiseM);
+    Q_proc(5,5) = 0.01^2;
+    Q_proc(6,6) = 0.01^2;
+    Q_proc(7,7) = 0.01^2;
+    Q_proc(8,8) = 0.01^2;
+    Q_proc(9,9) = 0.01^2;
+    Q_proc(10,10) = 0.01^2;
+    [Q_proc_E, Q_proc_e] = eig(Q_proc);
     R_meas=r_meas^2*eye(n_meas_states);         % covariance of measurement
 %     R_meas_dash=r_meas^2*eye(n_meas_states_dash);
     [R_meas_E, R_meas_e] = eig(R_meas);
 %     [R_meas_E_dash, R_meas_e_dash] = eig(R_meas_dash);
     dt = 0.1;
-    delta = 0;
     WB = 2.71;
+    m=1454;
         % >>>>>>>>>>>>>NOISE START<<<<<<<<<<<<<<<<<<<<<
         mu = zeros(3,1);
         QR = [0.1^2 0 0; 0 0.1^2 0; 0 0 (0.01*0.01)^2]; % Covariance
@@ -76,7 +80,10 @@ replace = 0;
        gtEulAng(:,i) = rotm2eul([X03(i,1:3); X03(i,5:7); X03(i,9:11)]);
     end
     gt = [gtdata(4,1:NN);gtdata(12,1:NN); gtEulAng(2,1:NN); gtEulAng(3,1:NN); gtEulAng(1,1:NN); gtdata(8,1:NN)];
-    
+    for i = 2:NN
+        delta(i-1) = gtEulAng(2,i)-gtEulAng(2,i-1);
+    end
+    delta(201) = 0;
     velX(1) = 0;
     velY(1) = 0;
     for i=2:NN
@@ -93,8 +100,34 @@ replace = 0;
     gt_meas = gt_m + q;
     
 
-
-    s_state=[gt(1,1) ;0;gt(1,2);0;gt(1,3);0;gt(1,4);0;gt(1,5);0;gt(1,6);0;0];         % initial state
+% x_handle = [x vx z vz yaw yawR roll rollR pitch pitchR y vy Vxz ax az ay Axz fxFL fxFR fxRL fxRR fyFL fyFR fyRL fyRR]
+    s_state=[...
+        gt(1,1);...         % x
+        velX(2);...         % vx
+        gt(1,2);...         % z
+        10;...              % vz
+        gt(1,3);...         % yaw
+        0;...               % yawR
+        gt(1,4);...         % roll
+        0;...               % rollR
+        gt(1,5);...         % pitch
+        0;...               % pitchR
+        gt(1,6);...         % y
+        0;...               % vy
+        0;...               % Vxz
+        0;...               % ax
+        0;...               % az
+        0;...               % ay
+        0;...               % Axz
+        0;...               % fxFL
+        0;...               % fxFR
+        0;...               % fxRL
+        0;...               % fxRR
+        0;...               % fyFL
+        0;...               % fyFR
+        0;...               % fyRL
+        0;...               % fyRR
+        ];                  % initial state
     x=s_state+q_proc*randn(n_states,1);               % initial state with noise
 %     x_dash = x;
     P = 0.1*eye(n_states);                            % initial state covraiance
@@ -170,8 +203,35 @@ for frame=first_frame:last_frame
       d = R_meas_E*sqrt(R_meas_e)*randn(n_meas_states,1);
       
       
-      % x_handle = [x vx z vz yaw yawR roll rollR pitch pitchR y vy V]
-      x_handle=@(x)[x(1)+(x(2)*dt)+e(1);(x(13)*sin(x(5)))+e(2);x(3)+(x(4)*dt)+e(3);(x(13)*cos(x(5)))+e(4);x(5)+(x(6)*dt)+e(5);x(6)+e(6); x(7)+(x(8)*dt)+e(7); x(8)+e(8); x(9)+(x(10)*dt)+e(9); x(10)+e(10);x(11)+(x(12)*dt)+e(11);x(12)+e(12); x(13)+e(13)];
+      % x_handle = [x vx z vz yaw yawR roll rollR pitch pitchR y vy Vxz ax az ay Axz fxFL fxFR fxRL fxRR fyFL fyFR fyRL fyRR]
+%       x_handle=@(x)[x(1)+(x(2)*dt)+e(1);(x(13)*sin(x(5)))+e(2);x(3)+(x(4)*dt)+e(3);(x(13)*cos(x(5)))+e(4);x(5)+(x(6)*dt)+e(5);x(6)+e(6); x(7)+(x(8)*dt)+e(7); x(8)+e(8); x(9)+(x(10)*dt)+e(9); x(10)+e(10);x(11)+(x(12)*dt)+e(11);x(12)+e(12); x(13)+e(13)];
+      x_handle=@(x)[...
+          x(1)+(x(2)*dt+(0.5*x(14)*dt*dt))+e(1);...                 % 1. x
+          x(2)+(x(14)*dt)+e(2);...                                  % 2. vx
+          x(3)+(x(4)*dt+(0.5*x(15)*dt*dt))+e(3);...                 % 3. z
+          x(4)+(x(15)*dt)+e(4);...                                  % 4. vz
+          x(5)+(x(6)*dt)+e(5);...                                   % 5. yaw
+          x(6)+e(6);...                                             % 6. yawR
+          x(7)+(x(8)*dt)+e(7);...                                   % 7. roll
+          x(8)+e(8);...                                             % 8. rollR
+          x(9)+(x(10)*dt)+e(9);...                                  % 9. pitch
+          x(10)+e(10);...                                           % 10. pitchR
+          x(11)+(x(12)*dt)+e(11);...                                % 11. y
+          x(12)+e(12);...                                           % 12. vy
+          x(13)+(x(17)*dt)+e(13);...                                % 13. Vxz
+          (((1/m)*((x(18)*cos(delta(k)))-(x(22)*sin(delta(k)))+x(19)*cos(delta(k))-x(23)*sin(delta(k))+x(20)+x(21)))*sin(x(5)))+e(14);...           % 14. ax
+          (((1/m)*((x(22)*cos(delta(k)))+(x(18)*sin(delta(k)))+x(23)*cos(delta(k))+x(19)*sin(delta(k))+x(24)+x(25)))*cos(x(5)))+e(15);...           % 15. az
+          x(16)+e(16);...                                           % 16. ay
+          x(17)+e(17);...                                           % 17. Axz
+          x(18)+e(18);...                                           % 18. fxFL
+          x(19)+e(19);...                                           % 19. fxFR
+          x(20)+e(20);...                                           % 20. fxRL
+          x(21)+e(21);...                                           % 21. fxRR
+          x(22)+e(22);...                                           % 22. fyFL
+          x(23)+e(23);...                                           % 23. fyFR
+          x(24)+e(24);...                                           % 24. fyRL
+          x(25)+e(25);...                                           % 25. fyRR
+          ];
 %       x_handle=@(x)[x(1)+(x(2)*dt)+e(1);x(2)+e(2);x(3)+(x(4)*dt)+e(3);x(4)+e(4);x(5)+(x(6)*dt)+e(5);x(6)+e(6); x(7)+x(8)*dt+e(7); x(8)+e(8); x(9)+(x(10)*dt)+e(9); x(10)+e(10);x(11)+(x(12)*dt)+e(11);x(12)+e(12); x(13)+e(13)];
 %       x_handle_dash=@(x)[x(1)+(x(2)*dt)+e(1);x(2)+e(2);x(3)+(x(4)*dt)+e(3);x(4)+e(4);x(5)+(x(6)*dt)+e(5);x(6)+e(6); x(7)+x(8)*dt+e(7); x(8)+e(8); x(9)+(x(10)*dt)+e(9); x(10)+e(10);x(11)+(x(12)*dt)+e(11);x(12)+e(12); x(13)+e(13)];
       
@@ -262,21 +322,30 @@ end
   plot(1:NN, velX, 'b-', 1:NN, x_store(2,:),'r--');
   subplot(5,1,5)
   plot(1:NN, velY, 'b-', 1:NN, x_store(4,:),'r--');
-%   for k=2:NN-1
-%       estDevX(k-1) = abs((x_store(1,k-1)-gt(1,k+1-1))/gt(1,k+1-1));
-%       estDevY(k-1) = abs((x_store(3,k-1)-gt(2,k+1-1))/gt(2,k+1-1));
+  for k=2:NN-1
+      estDevX(k-1) = abs((x_store(1,k-1)-gt(1,k+1-1)));
+      estDevY(k-1) = abs((x_store(3,k-1)-gt(2,k+1-1)));
+      estDevVX(k-1) = abs((x_store(2, k-1)-velX(k)));
+      estDevVY(k-1) = abs((x_store(4, k-1)-velY(k)));
 %       estDevX_dash(k-1) = abs((x_store_dash(1,k-1)-gt(1,k+1-1))/gt(1,k+1-1));
 %       estDevY_dash(k-1) = abs((x_store_dash(3,k-1)-gt(2,k+1-1))/gt(2,k+1-1));
-%       measDevX(k-1) = abs((gt_meas(1,k+1-1)-gt(1,k+1-1))/gt(1,k+1-1));
-%       measDevY(k-1) = abs((gt_meas(2,k+1-1)-gt(2,k+1-1))/gt(2,k+1-1));
-%   end
-%   
-%   mEDX = mean(estDevX);
-%   mEDY = mean(estDevY);
+      measDevX(k-1) = abs((gt_meas(1,k+1-1)-gt(1,k+1-1)));
+      measDevY(k-1) = abs((gt_meas(2,k+1-1)-gt(2,k+1-1)));
+  end
+  
+  % Relative Percent Difference
+  
+  
+  mEDX = mean(estDevX);
+  mEDY = mean(estDevY);
+  mEDVX = mean(estDevVX);
+  mEDVY = mean(estDevVY);
 %   mEDX_dash = mean(estDevX_dash);
 %   mEDY_dash = mean(estDevY_dash);
-%   mMDX = mean(measDevX);
-%   mMDY = mean(measDevY);
+  mMDX = mean(measDevX);
+  mMDY = mean(measDevY);
+  max(estDevVX);
+  max(estDevVY);
   
   %{
   figure;
