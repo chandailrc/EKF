@@ -39,7 +39,7 @@ replace = 0;
 
 % >>>>>>>>START: EKF PARAMETERS<<<<<<<<<<<<<
     NN = last_frame - first_frame + 1;
-    n_states=25;
+    n_states=46;
     n_meas_states = 9;
 %     n_meas_states_dash = 3;
     q_proc=0.1;                                 %std of process 
@@ -58,8 +58,16 @@ replace = 0;
     [R_meas_E, R_meas_e] = eig(R_meas);
 %     [R_meas_E_dash, R_meas_e_dash] = eig(R_meas_dash);
     dt = 0.1;
-    WB = 2.71;
-    m=1454;
+    wb = 2.71;
+    m = 1454;
+    g = 9.81;
+    tr = 1.6;
+    tf = tr;
+    a = 1.68;
+    b = 2.71-1.68;
+    h = 0.825;
+    wheelr = (0.4/2)+0.11;
+    
         % >>>>>>>>>>>>>NOISE START<<<<<<<<<<<<<<<<<<<<<
         mu = zeros(3,1);
         QR = [0.1^2 0 0; 0 0.1^2 0; 0 0 (0.01*0.01)^2]; % Covariance
@@ -102,31 +110,52 @@ replace = 0;
 
 % x_handle = [x vx z vz yaw yawR roll rollR pitch pitchR y vy Vxz ax az ay Axz fxFL fxFR fxRL fxRR fyFL fyFR fyRL fyRR]
     s_state=[...
-        gt(1,1);...         % x
-        velX(2);...         % vx
-        gt(1,2);...         % z
-        10;...              % vz
-        gt(1,3);...         % yaw
-        0;...               % yawR
-        gt(1,4);...         % roll
-        0;...               % rollR
-        gt(1,5);...         % pitch
-        0;...               % pitchR
-        gt(1,6);...         % y
-        0;...               % vy
-        0;...               % Vxz
-        0;...               % ax
-        0;...               % az
-        0;...               % ay
-        0;...               % Axz
-        0;...               % fxFL
-        0;...               % fxFR
-        0;...               % fxRL
-        0;...               % fxRR
-        0;...               % fyFL
-        0;...               % fyFR
-        0;...               % fyRL
-        0;...               % fyRR
+        gt(1,1);...         % 1. x
+        velX(2);...         % 2. vx
+        gt(1,2);...         % 3. z
+        10;...              % 4. vz
+        gt(1,3);...         % 5. yaw
+        1;...               % 6. yawR
+        gt(1,4);...         % 7. roll
+        1;...               % 8. rollR
+        gt(1,5);...         % 9. pitch
+        1;...               % 10. pitchR
+        gt(1,6);...         % 11. y
+        1;...               % 12. vy
+        1;...               % 13. Vxz
+        1;...               % 14. ax
+        1;...               % 15. az
+        1;...               % 16. ay
+        1;...               % 17. Axz
+        1;...               % 18. fxFL
+        1;...               % 19. fxFR
+        1;...               % 20. fxRL
+        1;...               % 21. fxRR
+        1;...               % 22. fyFL
+        1;...               % 23. fyFR
+        1;...               % 24. fyRL
+        1;...               % 25. fyRR
+        1;...               % 26. fzFL
+        1;...               % 27. fzFR
+        1;...               % 28. fzRL
+        1;...               % 29. fzRR
+        1;...               % 30. sFL
+        1;...               % 31. sFR
+        1;...               % 32. sRL
+        1;...               % 33. sRR
+        1;...               % 34. wFL
+        1;...               % 35. wFR
+        1;...               % 36. wRL
+        1;...               % 37. wRR
+        1;...               % 38. vFL
+        1;...               % 39. vFR
+        1;...               % 40. vRL
+        1;...               % 41. vRR
+        1;...               % 42. beta
+        1;...               % 43. alphaFL
+        1;...               % 44. alphaFR
+        1;...               % 45. alphaRL
+        1;...               % 46. alphaRR
         ];                  % initial state
     x=s_state+q_proc*randn(n_states,1);               % initial state with noise
 %     x_dash = x;
@@ -211,7 +240,7 @@ for frame=first_frame:last_frame
           x(3)+(x(4)*dt+(0.5*x(15)*dt*dt))+e(3);...                 % 3. z
           x(4)+(x(15)*dt)+e(4);...                                  % 4. vz
           x(5)+(x(6)*dt)+e(5);...                                   % 5. yaw
-          x(6)+e(6);...                                             % 6. yawR
+          sqrt(((x(1))^2 + (x(2))^2))*tan(delta(k))/wb;...          % 6. yawR
           x(7)+(x(8)*dt)+e(7);...                                   % 7. roll
           x(8)+e(8);...                                             % 8. rollR
           x(9)+(x(10)*dt)+e(9);...                                  % 9. pitch
@@ -231,6 +260,27 @@ for frame=first_frame:last_frame
           x(23)+e(23);...                                           % 23. fyFR
           x(24)+e(24);...                                           % 24. fyRL
           x(25)+e(25);...                                           % 25. fyRR
+          (0.5*m*g + (m*x(15)*h)/tf)*(b/(a+b)) - 0.5*m*x(14)*(h/a+b) + e(26);...        % 26. fzFL
+          (0.5*m*g - (m*x(15)*h)/tf)*(b/(a+b)) - 0.5*m*x(14)*(h/a+b) + e(27);...        % 27. fzFR
+          (0.5*m*g + (m*x(15)*h)/tr)*(b/(a+b)) + 0.5*m*x(14)*(h/a+b) + e(28);...        % 28. fzRL
+          (0.5*m*g - (m*x(15)*h)/tr)*(b/(a+b)) + 0.5*m*x(14)*(h/a+b) + e(29);...        % 29. fzRR
+          ((x(34)*wheelr)/x(38))-1 + e(30);...      % 30. sFL
+          ((x(35)*wheelr)/x(39))-1 + e(31);...      % 31. sFR
+          ((x(36)*wheelr)/x(40))-1 + e(32);...      % 32. sRL
+          ((x(37)*wheelr)/x(41))-1 + e(33);...      % 33. sRR
+          x(34);...                         % 34. wFL
+          x(35);...                         % 35. wFR
+          x(36);...                         % 36. wRL
+          x(37);...                         % 37. wRR
+          sqrt(((x(2))^2 + (x(4))^2)) + x(6)*((tf/2) - a*x(42));...        % 38. vFL
+          sqrt(((x(2))^2 + (x(4))^2)) + x(6)*((-tf/2) - a*x(42));...       % 39. vFR
+          sqrt(((x(2))^2 + (x(4))^2)) + x(6)*((tr/2) + b*x(42));...        % 40. vRL
+          sqrt(((x(2))^2 + (x(4))^2)) + x(6)*((-tr/2) + b*x(42));...       % 41. vRR
+          atan((x(4)*cos(x(5)))/(x(2)*sin(x(5))));...               % 42. beta
+          delta(k)-atan((x(4)+(a*x(6)))/(x(1)+(0.5*tf*x(6))));...     % 43. alphaFL
+          delta(k)-atan((x(4)+(a*x(6)))/(x(1)-(0.5*tf*x(6))));...     % 44. alphaFR
+          atan((-x(4)+b*x(6))/(x(1)+tr*(x(6)/2)));...          % 45. alphaRL
+          atan((-x(4)+b*x(6))/(x(1)-tr*(x(6)/2)));...          % 46. alphaRR
           ];
 %       x_handle=@(x)[x(1)+(x(2)*dt)+e(1);x(2)+e(2);x(3)+(x(4)*dt)+e(3);x(4)+e(4);x(5)+(x(6)*dt)+e(5);x(6)+e(6); x(7)+x(8)*dt+e(7); x(8)+e(8); x(9)+(x(10)*dt)+e(9); x(10)+e(10);x(11)+(x(12)*dt)+e(11);x(12)+e(12); x(13)+e(13)];
 %       x_handle_dash=@(x)[x(1)+(x(2)*dt)+e(1);x(2)+e(2);x(3)+(x(4)*dt)+e(3);x(4)+e(4);x(5)+(x(6)*dt)+e(5);x(6)+e(6); x(7)+x(8)*dt+e(7); x(8)+e(8); x(9)+(x(10)*dt)+e(9); x(10)+e(10);x(11)+(x(12)*dt)+e(11);x(12)+e(12); x(13)+e(13)];
